@@ -13,9 +13,17 @@ interface ChapterState {
   locked_by?: string;
 }
 
+export interface RoomHistoryItem {
+  roomId: string;
+  lastVisited: number;
+  status?: 'active' | 'closed';
+  progress?: number;
+}
+
 // Components
 import TehillimGrid from "./components/TehillimGrid";
 import ChapterView from "./components/ChapterView";
+import RoomHistory from "./components/RoomHistory";
 
 export default function App() {
   return (
@@ -30,9 +38,66 @@ export default function App() {
   );
 }
 
+// Custom hook to manage local history
+function useRoomHistory() {
+  const [history, setHistory] = useState<RoomHistoryItem[]>([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('tehillim-history');
+    if (saved) {
+      try {
+        setHistory(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse history");
+      }
+    }
+  }, []);
+
+  const addRoom = (roomId: string) => {
+    setHistory(prev => {
+      const filtered = prev.filter(item => item.roomId !== roomId);
+      const newHistory = [{ roomId, lastVisited: Date.now() }, ...filtered].slice(0, 10); // Keep last 10
+      localStorage.setItem('tehillim-history', JSON.stringify(newHistory));
+      return newHistory;
+    });
+  };
+
+  return { history, addRoom };
+}
+
 function HomeView() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const { history } = useRoomHistory();
+  const [enrichedHistory, setEnrichedHistory] = useState<RoomHistoryItem[]>([]);
+
+  useEffect(() => {
+    // Fetch current status for all rooms in history
+    const loadHistoryStatus = async () => {
+      if (history.length === 0) return;
+      
+      const updated = await Promise.all(history.map(async (item) => {
+        try {
+          const res = await fetch(`/api/room/${item.roomId}`);
+          if (res.status === 404) {
+             return { ...item, status: 'closed' as const, progress: 100 };
+          }
+          const data = await res.json();
+          if (data && data.states) {
+            const completedCount = data.states.filter((s: any) => s.status === 'completed').length;
+            const progress = Math.round((completedCount / 150) * 100);
+            return { ...item, status: 'active' as const, progress };
+          }
+          return item;
+        } catch {
+          return item; // Keep as is if network fails
+        }
+      }));
+      setEnrichedHistory(updated);
+    };
+
+    loadHistoryStatus();
+  }, [history]);
 
   const createRoom = async () => {
     setLoading(true);
@@ -78,6 +143,10 @@ function HomeView() {
             </p>
           </div>
         </div>
+
+        {enrichedHistory.length > 0 && (
+          <RoomHistory rooms={enrichedHistory} onNavigate={(roomId) => navigate(`/room/${roomId}`)} />
+        )}
       </motion.div>
     </div>
   );
@@ -88,12 +157,13 @@ function RoomView() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [chapters, setChapters] = useState<ChapterState[]>([]);
   const [selectedChapter, setSelectedChapter] = useState<number | null>(null);
-  const [userId] = useState(() => Math.random().toString(36).substring(7));
+  const [userId] = useState(() => crypto.randomUUID());
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
 
   const navigate = useNavigate();
+  const { addRoom } = useRoomHistory();
 
   useEffect(() => {
     const newSocket = io();
@@ -102,9 +172,18 @@ function RoomView() {
     fetch(`/api/room/${roomId}`)
       .then(res => res.json())
       .then(data => {
+        if (data.closed) {
+          alert("This room has been closed because the entire Tehillim book was finished or expired!");
+          navigate("/");
+          return;
+        }
         setChapters(data.states);
         setLoading(false);
         newSocket.emit("join-room", roomId);
+        if (roomId) addRoom(roomId);
+      })
+      .catch(() => {
+        navigate("/");
       });
 
     newSocket.on("chapter-updated", ({ chapterNumber, status, lockedBy }) => {
@@ -123,6 +202,12 @@ function RoomView() {
         
         return updated;
       });
+    });
+
+    newSocket.on("room-deleted", () => {
+      // If a user gets this event, it means someone else deleted the completed room
+      alert("This room has been closed because the entire Tehillim book was finished!");
+      navigate("/");
     });
 
     return () => {
@@ -193,12 +278,21 @@ function RoomView() {
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-bold text-stone-800 flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-emerald-600" />
-            קריאת תהילים משותפת
-          </h2>
-          <p className="text-stone-500 text-sm">חדר: {roomId}</p>
+        <div className="flex items-start gap-8">
+          <button
+            onClick={() => navigate("/")}
+            title="חזרה לדף הבית"
+            className="mt-1 p-2  text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors shrink-0"
+          >
+            <Home className="w-6 h-6" />
+          </button>
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold text-stone-800 flex items-center gap-2">
+              <BookOpen className="w-6 h-6 text-emerald-600" />
+              קריאת תהילים משותפת
+            </h2>
+            <p className="text-stone-500 text-sm">חדר: {roomId}</p>
+          </div>
         </div>
         
         <div className="flex items-center gap-3">
@@ -260,12 +354,16 @@ function RoomView() {
             key="completion-modal"
             onClose={() => setShowCompletionModal(false)}
             onNewRoom={async () => {
+              socket?.emit("delete-room", roomId);
               const res = await fetch("/api/room/create");
-              const { roomId } = await res.json();
-              navigate(`/room/${roomId}`);
+              const { roomId: newRoomId } = await res.json();
+              navigate(`/room/${newRoomId}`);
               setShowCompletionModal(false);
             }}
-            onHome={() => navigate("/")}
+            onHome={() => {
+              socket?.emit("delete-room", roomId);
+              navigate("/");
+            }}
           />
         )}
       </AnimatePresence>
