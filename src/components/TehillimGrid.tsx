@@ -1,6 +1,38 @@
 import { motion } from "motion/react";
 import { Lock, CheckCircle2 } from "lucide-react";
 
+export function toHebrewNumeral(num: number): string {
+  if (num <= 0) return num.toString();
+  
+  const units = ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט"];
+  const tens = ["", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ"];
+  const hundreds = ["", "ק", "ר", "ש", "ת"];
+  
+  let result = "";
+  let remaining = num;
+
+  if (remaining >= 100) {
+    result += hundreds[Math.floor(remaining / 100)];
+    remaining %= 100;
+  }
+
+  if (remaining === 15) {
+    result += "טו";
+  } else if (remaining === 16) {
+    result += "טז";
+  } else {
+    if (remaining >= 10) {
+      result += tens[Math.floor(remaining / 10)];
+      remaining %= 10;
+    }
+    if (remaining > 0) {
+      result += units[remaining];
+    }
+  }
+
+  return result;
+}
+
 interface ChapterState {
   chapter_number: number;
   status: 'available' | 'locked' | 'completed';
@@ -39,7 +71,7 @@ export default function TehillimGrid({ chapters, onChapterClick, currentUserId }
                 : 'bg-white border-stone-100 text-stone-600 hover:border-emerald-200 hover:bg-emerald-50 shadow-sm'}
             `}
           >
-            {chapter.chapter_number}
+            {toHebrewNumeral(chapter.chapter_number)}
             
             <div className="absolute top-1 right-1">
               {isCompleted && <CheckCircle2 className="w-3 h-3 md:w-4 h-4" />}
