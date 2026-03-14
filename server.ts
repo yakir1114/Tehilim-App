@@ -28,9 +28,12 @@ db.exec(`
 
 // Migration for existing databases
 try {
-  db.exec("ALTER TABLE rooms ADD COLUMN last_active_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+  // SQLite doesn't allow adding columns with non-constant defaults via ALTER TABLE
+  // so we add it without a default first, then update existing rows.
+  db.exec("ALTER TABLE rooms ADD COLUMN last_active_at DATETIME");
+  db.exec("UPDATE rooms SET last_active_at = CURRENT_TIMESTAMP WHERE last_active_at IS NULL");
 } catch (e) {
-  // Column already exists, safe to ignore
+  // Column already exists or other error, safe to ignore for now as the table init handles fresh DBs
 }
 
 async function startServer() {
@@ -73,7 +76,7 @@ async function startServer() {
   // API Routes
   app.get("/api/room/create", (req, res) => {
     const roomId = Math.random().toString(36).substring(2, 9);
-    db.prepare("INSERT INTO rooms (id) VALUES (?)").run(roomId);
+    db.prepare("INSERT INTO rooms (id, last_active_at) VALUES (?, CURRENT_TIMESTAMP)").run(roomId);
     // Initialize chapters for the room
     const insertChapter = db.prepare("INSERT INTO chapter_states (room_id, chapter_number) VALUES (?, ?)");
     for (let i = 1; i <= 150; i++) {
@@ -206,7 +209,7 @@ async function startServer() {
   }
 
   httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on PORT:${PORT}`);
   });
 }
 
