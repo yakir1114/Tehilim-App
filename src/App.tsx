@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useNavigate, useParams } from "react-router-dom";
+import { HashRouter , Routes, Route, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState, useMemo } from "react";
 import { io, Socket } from "socket.io-client";
 import { motion, AnimatePresence } from "motion/react";
@@ -27,14 +27,14 @@ import RoomHistory from "./components/RoomHistory";
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter >
       <div className="min-h-screen bg-[#FDFCFB] text-[#1A1A1A] font-sans" dir="rtl">
         <Routes>
           <Route path="/" element={<HomeView />} />
           <Route path="/room/:roomId" element={<RoomView />} />
         </Routes>
       </div>
-    </BrowserRouter>
+    </HashRouter >
   );
 }
 
