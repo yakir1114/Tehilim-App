@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { Lock, CheckCircle2 } from "lucide-react";
+import { getHebrewGematria } from "../lib/gematria";
 
 interface ChapterState {
   chapter_number: number;
@@ -39,7 +40,7 @@ export default function TehillimGrid({ chapters, onChapterClick, currentUserId }
                 : 'bg-white border-stone-100 text-stone-600 hover:border-emerald-200 hover:bg-emerald-50 shadow-sm'}
             `}
           >
-            {chapter.chapter_number}
+            {getHebrewGematria(chapter.chapter_number)}
             
             <div className="absolute top-1 right-1">
               {isCompleted && <CheckCircle2 className="w-3 h-3 md:w-4 h-4" />}
@@ -52,3 +53,4 @@ export default function TehillimGrid({ chapters, onChapterClick, currentUserId }
     </div>
   );
 }
+

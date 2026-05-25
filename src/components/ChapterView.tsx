@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { X, Check, RotateCcw, Loader2, ChevronRight, ChevronLeft } from "lucide-react";
+import { getHebrewGematria } from "../lib/gematria";
 
 interface Props {
   chapterNumber: number;
@@ -50,15 +51,16 @@ export default function ChapterView({ chapterNumber, onFinish, onCancel }: Props
             >
               <X className="w-6 h-6 text-stone-500" />
             </button>
-            <h3 className="text-2xl font-bold text-stone-800">פרק {chapterNumber}</h3>
+            <h3 className="text-2xl font-bold text-stone-800">פרק {getHebrewGematria(chapterNumber)}</h3>
           </div>
           
           <div className="flex items-center gap-2 text-stone-400 font-medium text-sm">
             <span>תהילים</span>
             <ChevronLeft className="w-4 h-4" />
-            <span>פרק {chapterNumber}</span>
+            <span>פרק {getHebrewGematria(chapterNumber)}</span>
           </div>
         </div>
+
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8 md:p-12 text-right">
