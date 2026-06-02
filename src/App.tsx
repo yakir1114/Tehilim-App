@@ -70,6 +70,7 @@ function formatDate(dateStr: string) {
 // Components
 import TehillimGrid from "./components/TehillimGrid";
 import ChapterView from "./components/ChapterView";
+import DonationFooter from "./components/DonationFooter";
 
 export default function App() {
   return (
@@ -180,6 +181,7 @@ function HomeView() {
             </div>
           </div>
 
+
           {/* Active Rooms Side-Pane */}
           {hasHistory && (
             <div className="md:col-span-12 lg:col-span-7 bg-white p-8 rounded-3xl shadow-xl border border-stone-100 flex flex-col justify-start space-y-6">
@@ -278,6 +280,7 @@ function HomeView() {
 
         </div>
       </motion.div>
+      <DonationFooter />
     </div>
   );
 }
@@ -480,6 +483,8 @@ function RoomView() {
           />
         )}
       </AnimatePresence>
+
+      <DonationFooter />
     </div>
   );
 }
