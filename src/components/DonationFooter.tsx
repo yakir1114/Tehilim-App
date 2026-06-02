@@ -1,8 +1,10 @@
-import { Coffee, Heart } from "lucide-react";
+import { Heart } from "lucide-react";
 
-const BMC_USERNAME = "YOUR_USERNAME"; // ← החלף בשם המשתמש שלך ב-Buy Me a Coffee
+const PAYPAL_EMAIL = "yakir1114@gmail.com";
 
 export default function DonationFooter() {
+  const paypalUrl = `https://www.paypal.com/donate/?business=${encodeURIComponent(PAYPAL_EMAIL)}&currency_code=ILS`;
+
   return (
     <footer className="mt-12 border-t border-stone-100 pt-8 pb-6 text-center space-y-4">
       <div className="flex items-center justify-center gap-2 text-stone-400">
@@ -20,13 +22,17 @@ export default function DonationFooter() {
       </p>
 
       <a
-        href={`https://www.buymeacoffee.com/${BMC_USERNAME}`}
+        href={paypalUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-2.5 px-6 py-3 bg-[#FFDD00] hover:bg-[#FFD000] text-stone-800 font-bold rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
+        className="inline-flex items-center gap-2.5 px-6 py-3 bg-[#0070BA] hover:bg-[#005ea6] text-white font-bold rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
       >
-        <Coffee className="w-5 h-5" />
-        תמכו באתר ☕
+        <img
+          src="https://www.paypalobjects.com/webstatic/icon/pp258.png"
+          alt="PayPal"
+          className="w-5 h-5 object-contain brightness-200"
+        />
+        תרמו דרך PayPal
       </a>
 
       <p className="text-xs text-stone-300 pt-1">תהילים יחד — לרפואת כל החולים</p>
