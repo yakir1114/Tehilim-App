@@ -1,9 +1,9 @@
 import { Heart } from "lucide-react";
 
-const PAYPAL_EMAIL = "yakir1114@gmail.com";
+const PAYPAL_ME = "https://paypal.me/yakirkarandian";
 
 export default function DonationFooter() {
-  const paypalUrl = `https://www.paypal.com/donate/?business=${encodeURIComponent(PAYPAL_EMAIL)}&currency_code=ILS`;
+  const paypalUrl = PAYPAL_ME;
 
   return (
     <footer className="mt-12 border-t border-stone-100 pt-8 pb-6 text-center space-y-4">
