@@ -552,7 +552,7 @@ function RoomView() {
               display: "flex", alignItems: "center", justifyContent: "center",
             }}
           >
-            <FeatherIcon size={20} color="var(--accent-text)" />
+            <Home size={20} color="var(--accent-text)" />
           </button>
           <div>
             <div style={{ fontWeight: 700, fontSize: 18, color: "var(--ink)" }}>קריאת תהילים משותפת</div>
