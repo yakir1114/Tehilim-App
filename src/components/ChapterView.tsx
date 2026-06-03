@@ -137,6 +137,7 @@ export default function ChapterView({ chapterNumber, onFinish, onCancel }: Props
                     lineHeight: 1.85,
                     color: "var(--ink)",
                     flex: 1,
+                    fontFamily: "serif",
                   }}
                   dangerouslySetInnerHTML={{ __html: verse }}
                 />
