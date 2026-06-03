@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route, useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, MouseEvent, Key } from "react";
 import { io, Socket } from "socket.io-client";
 import { motion, AnimatePresence } from "motion/react";
-import { BookOpen, Users, Share2, CheckCircle2, Lock, ChevronRight, Home, Loader2, Trophy, Sparkles, PartyPopper, Trash2, Clock } from "lucide-react";
+import {
+  BookOpen, Users, Share2, CheckCircle2, Home,
+  Loader2, Trophy, Sparkles, Trash2, Clock, Check, RotateCcw
+} from "lucide-react";
 
 // Types
 type ChapterStatus = 'available' | 'locked' | 'completed';
@@ -21,7 +24,7 @@ interface RoomSummary {
   totalChapters: number;
 }
 
-// Helper functions for localStorage tracking
+// Helpers
 function getVisitedRooms(): string[] {
   try {
     const stored = localStorage.getItem("tehillim_visited_rooms");
@@ -71,11 +74,23 @@ function formatDate(dateStr: string) {
 import TehillimGrid from "./components/TehillimGrid";
 import ChapterView from "./components/ChapterView";
 import DonationFooter from "./components/DonationFooter";
+import ThemeToggle from "./components/ThemeToggle";
+
+// Feather icon (pen nib) — used in branding
+function FeatherIcon({ size = 20, color = "var(--accent-text)" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" />
+      <line x1="16" y1="8" x2="2" y2="22" />
+      <line x1="17.5" y1="15" x2="9" y2="15" />
+    </svg>
+  );
+}
 
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-[#FDFCFB] text-[#1A1A1A] font-sans" dir="rtl">
+      <div dir="rtl" style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--ink)" }}>
         <Routes>
           <Route path="/" element={<HomeView />} />
           <Route path="/room/:roomId" element={<RoomView />} />
@@ -85,6 +100,8 @@ export default function App() {
   );
 }
 
+// ─── Home View ───────────────────────────────────────────────────────────────
+
 function HomeView() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -93,20 +110,13 @@ function HomeView() {
 
   const loadSummaries = async () => {
     const list = getVisitedRooms();
-    if (list.length === 0) {
-      setSummaries([]);
-      return;
-    }
+    if (list.length === 0) { setSummaries([]); return; }
     setFetching(true);
     try {
       const res = await fetch(`/api/rooms/summary?ids=${list.join(",")}`);
       const data = await res.json();
       if (Array.isArray(data)) {
-        // Sort summaries according to the order in the list (most recent first)
-        const sorted = data.sort((a, b) => {
-          return list.indexOf(a.roomId) - list.indexOf(b.roomId);
-        });
-        setSummaries(sorted);
+        setSummaries(data.sort((a, b) => list.indexOf(a.roomId) - list.indexOf(b.roomId)));
       }
     } catch (err) {
       console.error("Failed to fetch summaries", err);
@@ -115,16 +125,13 @@ function HomeView() {
     }
   };
 
-  useEffect(() => {
-    loadSummaries();
-  }, []);
+  useEffect(() => { loadSummaries(); }, []);
 
   const createRoom = async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/room/create");
       const { roomId } = await res.json();
-      // Add to history right away
       addVisitedRoom(roomId);
       navigate(`/room/${roomId}`);
     } catch (err) {
@@ -139,151 +146,279 @@ function HomeView() {
     setSummaries(prev => prev.filter(s => s.roomId !== id));
   };
 
-  const hasHistory = getVisitedRooms().length > 0;
+  const hasHistory = summaries.length > 0;
+  const activeCount = summaries.filter(s => s.completedCount < s.totalChapters).length;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 bg-[#FDFCFB]">
-      <motion.div 
-        initial={{ opacity: 0, y: 25 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className={`w-full ${hasHistory ? "max-w-5xl" : "max-w-md"} space-y-8`}
-      >
-        <div className={`${hasHistory ? "grid grid-cols-1 md:grid-cols-12 gap-8 items-stretch" : "block"}`}>
-          
-          {/* Create Room Card */}
-          <div className={`${hasHistory ? "md:col-span-12 lg:col-span-5" : "w-full"} bg-white p-8 rounded-3xl shadow-xl border border-stone-100 flex flex-col justify-between space-y-6 text-center`}>
-            <div className="space-y-6 my-auto py-4">
-              <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
-                <BookOpen className="w-10 h-10 text-emerald-600" />
-              </div>
-              <div className="space-y-2">
-                <h1 className="text-4xl font-extrabold tracking-tight text-stone-800">תהילים יחד</h1>
-                <p className="text-stone-500 text-base leading-relaxed">
-                  קריאת ספר תהילים משותפת בזמן אמת. חלקו את הפרקים בין חברים וסיימו את הספר יחד.
-                </p>
-              </div>
-              
-              <div className="space-y-4 pt-4">
-                <button
-                  onClick={createRoom}
-                  disabled={loading}
-                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-lg transition-all shadow-lg hover:shadow-emerald-100 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Users className="w-5 h-5" />}
-                  התחלת קריאה משותפת
-                </button>
-                
-                <p className="text-xs text-stone-400">
-                  בלחיצה על הכפתור יווצר חדר קריאה ייחודי שתוכלו לשתף
-                </p>
-              </div>
+    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+      {/* Top bar */}
+      <div style={{
+        display: "flex",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "20px 28px",
+      }}>
+        {/* RIGHT: branding */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 38, height: 38,
+            background: "var(--accent-soft)",
+            borderRadius: 12,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <FeatherIcon size={18} />
+          </div>
+          <span style={{ fontWeight: 700, fontSize: 18, color: "var(--ink)" }}>תהילים יחד</span>
+        </div>
+        {/* LEFT: theme toggle */}
+        <ThemeToggle />
+      </div>
+
+      {/* Main content */}
+      <div style={{ flex: 1, padding: "0 28px 28px", maxWidth: 900, margin: "0 auto", width: "100%" }}>
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          style={{
+            display: "grid",
+            gridTemplateColumns: hasHistory ? "1fr 1.15fr" : "1fr",
+            gap: 18,
+          }}
+          className="home-grid"
+        >
+          {/* Create Room card */}
+          <div style={{
+            background: "var(--surface)",
+            border: "1px solid var(--line)",
+            borderRadius: 26,
+            padding: 30,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 22,
+            textAlign: "center",
+          }}>
+            {/* Hero icon */}
+            <div style={{
+              width: 76, height: 76,
+              background: "var(--accent-soft)",
+              borderRadius: 22,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <BookOpen size={32} strokeWidth={1.8} color="var(--accent-text)" />
             </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--ink)" }}>
+                נקרא יחד
+              </h1>
+              <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--ink-soft)" }}>
+                קריאת ספר תהילים משותפת בזמן אמת. חלקו את הפרקים בין חברים וסיימו את הספר יחד.
+              </p>
+            </div>
+
+            <button
+              onClick={createRoom}
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: "15px",
+                background: "var(--accent)",
+                color: "var(--accent-ink)",
+                border: "none",
+                borderRadius: 18,
+                fontSize: 16.5,
+                fontWeight: 700,
+                cursor: loading ? "not-allowed" : "pointer",
+                opacity: loading ? 0.6 : 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                boxShadow: "0 10px 24px var(--complete-shadow)",
+                fontFamily: "inherit",
+                transition: "opacity 0.18s",
+              }}
+            >
+              {loading
+                ? <Loader2 size={20} className="animate-spin" />
+                : <Users size={20} />}
+              התחלת קריאה חדשה
+            </button>
+
+            <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)" }}>
+              בלחיצה יווצר חדר ייחודי שתוכלו לשתף עם חברים
+            </p>
           </div>
 
-
-          {/* Active Rooms Side-Pane */}
+          {/* My Rooms card */}
           {hasHistory && (
-            <div className="md:col-span-12 lg:col-span-7 bg-white p-8 rounded-3xl shadow-xl border border-stone-100 flex flex-col justify-start space-y-6">
-              <div className="flex items-center justify-between border-b border-stone-100 pb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-emerald-600" />
+            <div style={{
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
+              borderRadius: 26,
+              padding: 30,
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{
+                    width: 34, height: 34,
+                    background: "var(--accent-soft)",
+                    borderRadius: 10,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Clock size={16} color="var(--accent-text)" />
                   </div>
-                  <div className="text-right">
-                    <h2 className="text-xl font-bold text-stone-800">החדרים שלי</h2>
-                    <p className="text-xs text-stone-400">היסטוריית החדרים שבהם השתתפת</p>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 15.5, color: "var(--ink)" }}>החדרים שלי</div>
+                    <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>היסטוריית החדרים שבהם השתתפת</div>
                   </div>
                 </div>
-                <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full">
-                  {summaries.length} חדרים פעילים
+                <span style={{
+                  background: "var(--accent-soft)",
+                  color: "var(--accent-text)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                }}>
+                  {activeCount} פעילים
                 </span>
               </div>
 
+              {/* Divider */}
+              <div style={{ height: 1, background: "var(--line)" }} />
+
+              {/* Room list */}
               {fetching && summaries.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center py-12 space-y-3">
-                  <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-                  <p className="text-stone-400 text-sm font-medium">טוען את החדרים שלך...</p>
-                </div>
-              ) : summaries.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center py-12 text-center space-y-2">
-                  <p className="text-stone-500 font-medium">לא נמצאו חדרים פעילים</p>
-                  <p className="text-stone-400 text-xs">ברגע שתצטרפו או תפתחו חדר, הוא יופיע כאן</p>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 0", gap: 12 }}>
+                  <Loader2 size={28} color="var(--accent-text)" className="animate-spin" />
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--ink-faint)" }}>טוען את החדרים שלך...</p>
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto max-h-[380px] space-y-4 pr-1 pl-1 scrollbar-thin">
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", maxHeight: 360 }}>
                   {summaries.map((room) => {
-                    const percentage = room.totalChapters > 0 
-                      ? Math.round((room.completedCount / room.totalChapters) * 100) 
+                    const percentage = room.totalChapters > 0
+                      ? Math.round((room.completedCount / room.totalChapters) * 100)
                       : 0;
-
+                    const isDone = percentage === 100;
                     return (
-                      <div
+                      <RoomCard
                         key={room.roomId}
+                        room={room}
+                        percentage={percentage}
+                        isDone={isDone}
                         onClick={() => navigate(`/room/${room.roomId}`)}
-                        className="relative p-5 bg-stone-50/50 hover:bg-emerald-50/10 rounded-2xl border border-stone-200/50 hover:border-emerald-200/50 transition-all text-right flex flex-col gap-3 group cursor-pointer duration-200"
-                      >
-                        {/* Title of Room & Delete */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-stone-800 text-lg group-hover:text-emerald-700 transition-colors">
-                              חדר {room.roomId}
-                            </span>
-                            <span className="text-xs text-stone-400 font-semibold bg-stone-100/80 rounded-md px-2 py-0.5">
-                              {percentage}% הושלם
-                            </span>
-                          </div>
-                          
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteRoom(room.roomId);
-                            }}
-                            className="p-1.5 hover:bg-rose-50 hover:text-rose-600 text-stone-400 rounded-lg transition-all cursor-pointer"
-                            title="הסר מהרשימה"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        {/* Creation Date Status Line */}
-                        <div className="flex items-center gap-1.5 text-stone-400 text-xs text-right">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>נוצר ב-{formatDate(room.createdAt)}</span>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between items-center text-xs font-semibold text-stone-500">
-                            <span>הושלמו {room.completedCount} מתוך {room.totalChapters} פרקים</span>
-                            <span className="text-emerald-600 font-bold">{percentage}%</span>
-                          </div>
-                          <div className="w-full bg-stone-200/50 h-2 rounded-full overflow-hidden">
-                            <div 
-                              className="bg-emerald-500 h-full rounded-full transition-all duration-350"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Hover hint arrow */}
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 text-emerald-600">
-                          <ChevronRight className="w-5 h-5 rotate-180" />
-                        </div>
-                      </div>
+                        onDelete={(e) => { e.stopPropagation(); handleDeleteRoom(room.roomId); }}
+                      />
                     );
                   })}
                 </div>
               )}
             </div>
           )}
+        </motion.div>
+      </div>
 
-        </div>
-      </motion.div>
       <DonationFooter />
+
+      {/* Responsive grid fix */}
+      <style>{`
+        @media (max-width: 768px) {
+          .home-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }
+
+function RoomCard({
+  room, percentage, isDone, onClick, onDelete,
+}: {
+  key?: Key;
+  room: RoomSummary;
+  percentage: number;
+  isDone: boolean;
+  onClick: () => void | Promise<void>;
+  onDelete: (e: MouseEvent<HTMLButtonElement>) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: "var(--surface-alt)",
+        border: "1px solid var(--line)",
+        borderRadius: 18,
+        padding: 15,
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        transform: hovered ? "translateY(-1px)" : "translateY(0)",
+        transition: "transform 0.18s ease",
+      }}
+    >
+      {/* Row 1: name + icons */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontWeight: 700, fontSize: 15.5, color: "var(--ink)" }}>חדר {room.roomId}</span>
+          {isDone && <CheckCircle2 size={15} color="var(--accent-text)" />}
+        </div>
+        <button
+          onClick={onDelete}
+          title="הסר מהרשימה"
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--ink-faint)",
+            padding: "4px",
+            display: "flex",
+            borderRadius: 6,
+          }}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      {/* Row 2: chapter count + % */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>{room.completedCount} מתוך 150 פרקים</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: isDone ? "var(--accent-text)" : "var(--ink-faint)" }}>
+          {percentage}%
+        </span>
+      </div>
+
+      {/* Row 3: progress bar */}
+      <div style={{ height: 7, background: "var(--bg)", borderRadius: 999, overflow: "hidden" }}>
+        <div style={{
+          height: "100%",
+          width: `${percentage}%`,
+          background: "var(--accent)",
+          borderRadius: 999,
+          transition: "width 0.4s ease",
+        }} />
+      </div>
+
+      {/* Row 4: timestamp */}
+      <div style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--ink-faint)" }}>
+        <Clock size={12} />
+        <span style={{ fontSize: 11 }}>נוצר ב-{formatDate(room.createdAt)}</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Room View ────────────────────────────────────────────────────────────────
 
 function RoomView() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -294,7 +429,6 @@ function RoomView() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
-
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -307,32 +441,24 @@ function RoomView() {
         setChapters(data.states);
         setLoading(false);
         newSocket.emit("join-room", roomId);
-        if (roomId) {
-          addVisitedRoom(roomId);
-        }
+        if (roomId) addVisitedRoom(roomId);
       });
 
     newSocket.on("chapter-updated", ({ chapterNumber, status, lockedBy }) => {
       setChapters(prev => {
-        const updated = prev.map(c => 
-          c.chapter_number === chapterNumber 
-            ? { ...c, status, locked_by: lockedBy } 
+        const updated = prev.map(c =>
+          c.chapter_number === chapterNumber
+            ? { ...c, status, locked_by: lockedBy }
             : c
         );
-        
-        // Check if all are completed
-        const completedCount = updated.filter(c => c.status === 'completed').length;
-        if (completedCount === 150) {
+        if (updated.filter(c => c.status === 'completed').length === 150) {
           setShowCompletionModal(true);
         }
-        
         return updated;
       });
     });
 
-    return () => {
-      newSocket.disconnect();
-    };
+    return () => { newSocket.disconnect(); };
   }, [roomId]);
 
   const handleChapterClick = (chapterNumber: number) => {
@@ -358,22 +484,15 @@ function RoomView() {
   const copyLink = async () => {
     const baseUrl = process.env.APP_URL || window.location.origin;
     const shareUrl = `${baseUrl}/room/${roomId}`;
-    
     try {
       if (navigator.share) {
-        await navigator.share({
-          title: 'תהילים יחד',
-          text: 'בואו לקרוא תהילים יחד איתי',
-          url: shareUrl,
-        });
+        await navigator.share({ title: 'תהילים יחד', text: 'בואו לקרוא תהילים יחד איתי', url: shareUrl });
       } else {
         await navigator.clipboard.writeText(shareUrl);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }
-    } catch (err) {
-      console.error("Failed to share", err);
-      // Fallback to clipboard if share fails or is cancelled
+    } catch {
       try {
         await navigator.clipboard.writeText(shareUrl);
         setCopied(true);
@@ -389,80 +508,132 @@ function RoomView() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-10 h-10 animate-spin text-emerald-600" />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <Loader2 size={40} color="var(--accent-text)" className="animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
-        <div className="flex items-center gap-4">
+    <div style={{
+      background: "var(--bg)",
+      minHeight: "100vh",
+      padding: 28,
+      display: "flex",
+      flexDirection: "column",
+      gap: 18,
+      maxWidth: 860,
+      margin: "0 auto",
+    }}>
+      {/* Header card */}
+      <div style={{
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        borderRadius: 22,
+        padding: 18,
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: 12,
+      }}>
+        {/* RIGHT: home + title */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button
             onClick={() => navigate("/")}
-            className="p-3 hover:bg-stone-100 rounded-2xl transition-all text-stone-500 hover:text-stone-800 flex items-center justify-center border border-stone-200/60 bg-white shadow-xs cursor-pointer"
             title="חזרה לדף הבית"
+            style={{
+              width: 42, height: 42,
+              background: "var(--surface-alt)",
+              border: "none",
+              borderRadius: 13,
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
           >
-            <Home className="w-5 h-5" />
+            <FeatherIcon size={20} color="var(--accent-text)" />
           </button>
-          <div className="space-y-1">
-            <h2 className="text-2xl font-bold text-stone-800 flex items-center gap-2">
-              <BookOpen className="w-6 h-6 text-emerald-600" />
-              קריאת תהילים משותפת
-            </h2>
-            <p className="text-stone-500 text-sm">חדר: {roomId}</p>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 18, color: "var(--ink)" }}>קריאת תהילים משותפת</div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>חדר: {roomId}</div>
           </div>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <div className="text-left md:text-right ml-4">
-            <div className="text-sm font-medium text-stone-400">התקדמות</div>
-            <div className="text-xl font-bold text-emerald-600">{completedCount}/150</div>
-          </div>
-          <button 
-            onClick={copyLink}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-medium ${
-              copied 
-                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
-                : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
-            }`}
-          >
-            {copied ? <CheckCircle2 className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
-            {copied ? 'הועתק!' : 'שיתוף'}
-          </button>
-        </div>
-      </header>
 
-      <div className="space-y-2">
-        <div className="flex justify-between items-end px-1">
-          <span className="text-sm font-bold text-emerald-600">{Math.round(progress)}%</span>
-          <span className="text-xs text-stone-400 font-medium">הושלם</span>
+        {/* LEFT: theme toggle + share */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <ThemeToggle />
+          <button
+            onClick={copyLink}
+            style={{
+              background: "var(--accent-soft)",
+              color: "var(--accent-text)",
+              border: "none",
+              borderRadius: 12,
+              padding: "10px 16px",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontFamily: "inherit",
+              transition: "opacity 0.18s",
+            }}
+          >
+            {copied ? <Check size={15} /> : <Share2 size={15} />}
+            {copied ? "הועתק!" : "שיתוף"}
+          </button>
         </div>
-        <div className="w-full bg-stone-100 h-3 rounded-full overflow-hidden shadow-inner">
-          <motion.div 
+      </div>
+
+      {/* Progress card */}
+      <div style={{
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        borderRadius: 22,
+        padding: "18px 22px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <span style={{ fontSize: 30, fontWeight: 800, color: "var(--ink)" }}>{completedCount}</span>
+            <span style={{ fontSize: 16, color: "var(--ink-faint)" }}> / 150 פרקים</span>
+          </div>
+          <span style={{ fontSize: 22, fontWeight: 800, color: "var(--accent-text)" }}>
+            {Math.round(progress)}%
+          </span>
+        </div>
+
+        {/* Progress bar with shimmer */}
+        <div style={{ height: 12, background: "var(--surface-alt)", borderRadius: 999, overflow: "hidden", position: "relative" }}>
+          <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
-            className="bg-emerald-500 h-full relative"
+            style={{ height: "100%", background: "var(--accent)", borderRadius: 999, position: "relative", overflow: "hidden" }}
           >
-            <motion.div 
-              animate={{ x: ["0%", "100%"] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-1/2"
-            />
+            <div style={{
+              position: "absolute", inset: 0,
+              background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.10) 50%, transparent 100%)",
+              animation: "shimmer 3.2s ease-in-out infinite",
+              width: "60%",
+            }} />
           </motion.div>
         </div>
       </div>
 
-      <TehillimGrid 
-        chapters={chapters} 
+      {/* Grid (filter tabs are inside TehillimGrid) */}
+      <TehillimGrid
+        chapters={chapters}
         onChapterClick={handleChapterClick}
         currentUserId={userId}
       />
 
       <AnimatePresence mode="wait">
         {selectedChapter && (
-          <ChapterView 
+          <ChapterView
             key={`chapter-view-${selectedChapter}`}
             chapterNumber={selectedChapter}
             onFinish={() => handleFinish(selectedChapter)}
@@ -470,13 +641,13 @@ function RoomView() {
           />
         )}
         {showCompletionModal && (
-          <CompletionModal 
+          <CompletionModal
             key="completion-modal"
             onClose={() => setShowCompletionModal(false)}
             onNewRoom={async () => {
               const res = await fetch("/api/room/create");
-              const { roomId } = await res.json();
-              navigate(`/room/${roomId}`);
+              const { roomId: newId } = await res.json();
+              navigate(`/room/${newId}`);
               setShowCompletionModal(false);
             }}
             onHome={() => navigate("/")}
@@ -489,70 +660,165 @@ function RoomView() {
   );
 }
 
-function CompletionModal({ onClose, onNewRoom, onHome, key }: { onClose: () => void; onNewRoom: () => void; onHome: () => void; key?: string }) {
+// ─── Completion Modal ─────────────────────────────────────────────────────────
+
+const CONFETTI_COLORS = [
+  "var(--accent)", "var(--accent-text)", "var(--mine-line)",
+  "oklch(0.75 0.13 80)", "oklch(0.70 0.10 260)",
+];
+
+function confettiSeed(i: number, max: number) {
+  // simple deterministic pseudo-random using index
+  return ((i * 7 + 13) % max);
+}
+
+function CompletionModal({
+  onClose, onNewRoom, onHome,
+}: {
+  key?: Key;
+  onClose: () => void;
+  onNewRoom: () => void | Promise<void>;
+  onHome: () => void | Promise<void>;
+}) {
+  const particles = Array.from({ length: 28 }, (_, i) => {
+    const left = ((i * 37 + 11) % 100);
+    const delay = confettiSeed(i, 240) / 100;
+    const dur = 2.6 + confettiSeed(i + 3, 200) / 100;
+    const size = 6 + confettiSeed(i + 1, 8);
+    const isRound = i % 3 !== 0;
+    const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+    return { left, delay, dur, size, isRound, color };
+  });
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-md"
+      style={{
+        position: "fixed", inset: 0, zIndex: 60,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+        background: "rgba(4,6,10,.66)",
+        backdropFilter: "blur(3px)",
+      }}
     >
+      {/* Confetti */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+        {particles.map((p, i) => (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              top: -14,
+              left: `${p.left}%`,
+              width: p.size,
+              height: p.size,
+              background: p.color,
+              borderRadius: p.isRound ? "999px" : "2px",
+              animation: `confettiFall ${p.dur}s ${p.delay}s linear infinite`,
+            }}
+          />
+        ))}
+      </div>
+
       <motion.div
         initial={{ scale: 0.8, y: 40 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.8, y: 40 }}
-        className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden text-center p-10 space-y-8 relative"
+        style={{
+          background: "var(--surface)",
+          borderRadius: 30,
+          maxWidth: 480,
+          width: "100%",
+          boxShadow: "0 30px 80px rgba(0,0,0,.40)",
+          overflow: "hidden",
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center",
+        }}
       >
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400" />
-        
-        <div className="relative">
-          <motion.div 
-            animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6"
-          >
-            <Trophy className="w-12 h-12 text-emerald-600" />
-          </motion.div>
-          
-          <div className="absolute -top-2 -right-2">
-            <Sparkles className="w-8 h-8 text-amber-400 animate-pulse" />
-          </div>
-          <div className="absolute -bottom-2 -left-2">
-            <PartyPopper className="w-8 h-8 text-emerald-400 animate-bounce" />
-          </div>
-        </div>
+        {/* Top accent bar */}
+        <div style={{ width: "100%", height: 5, background: "var(--accent)" }} />
 
-        <div className="space-y-3">
-          <h2 className="text-4xl font-black text-stone-800 tracking-tight">אשריכם!</h2>
-          <p className="text-xl text-stone-500 font-medium leading-relaxed">
-            סיימתם את כל ספר התהילים יחד. <br />
-            יהי רצון שיתקבלו התפילות לרצון.
-          </p>
-        </div>
+        <div style={{ padding: "44px 36px", display: "flex", flexDirection: "column", alignItems: "center", gap: 22 }}>
+          {/* Trophy */}
+          <div style={{ position: "relative" }}>
+            <div style={{
+              width: 96, height: 96,
+              background: "var(--accent-soft)",
+              borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 0 0 8px var(--accent-soft)",
+              animation: "trophyFloat 3.4s ease-in-out infinite",
+            }}>
+              <Trophy size={46} strokeWidth={1.8} color="var(--accent-text)" />
+            </div>
+            <div style={{ position: "absolute", top: -6, right: -6, animation: "sparklePulse 2s ease-in-out infinite" }}>
+              <Sparkles size={20} color="var(--accent-text)" />
+            </div>
+            <div style={{ position: "absolute", bottom: -6, left: -6, animation: "sparklePulse 2s 0.8s ease-in-out infinite" }}>
+              <Sparkles size={16} color="var(--mine-line)" />
+            </div>
+          </div>
 
-        <div className="grid grid-cols-1 gap-4 pt-4">
-          <button
-            onClick={onNewRoom}
-            className="w-full py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xl shadow-xl shadow-emerald-100 transition-all flex items-center justify-center gap-3 group"
-          >
-            <BookOpen className="w-6 h-6 group-hover:scale-110 transition-transform" />
-            התחלת ספר חדש
-          </button>
-          
-          <button
-            onClick={onHome}
-            className="w-full py-5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-2xl font-bold text-xl transition-all flex items-center justify-center gap-3"
-          >
-            <Home className="w-6 h-6" />
-            חזרה לדף הבית
-          </button>
-          
-          <button
-            onClick={onClose}
-            className="text-stone-400 hover:text-stone-600 font-medium text-sm transition-colors"
-          >
-            סגור והישאר בחדר
-          </button>
+          {/* Text */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 38, fontWeight: 900, color: "var(--ink)" }}>!אשריכם</h2>
+            <p style={{ margin: 0, fontSize: 17, fontWeight: 500, lineHeight: 1.6, color: "var(--ink-soft)" }}>
+              סיימתם את כל ספר התהילים יחד.<br />
+              יהי רצון שיתקבלו התפילות לרצון.
+            </p>
+          </div>
+
+          {/* Buttons */}
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+            <button
+              onClick={onNewRoom}
+              style={{
+                width: "100%", padding: "16px",
+                background: "var(--accent)", color: "var(--accent-ink)",
+                border: "none", borderRadius: 18,
+                fontSize: 17, fontWeight: 700,
+                cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                boxShadow: "0 10px 24px var(--complete-shadow)",
+                fontFamily: "inherit",
+              }}
+            >
+              <BookOpen size={20} />
+              התחלת ספר חדש
+            </button>
+
+            <button
+              onClick={onHome}
+              style={{
+                width: "100%", padding: "16px",
+                background: "transparent", color: "var(--ink-soft)",
+                border: "1px solid var(--line)", borderRadius: 18,
+                fontSize: 17, fontWeight: 700,
+                cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                fontFamily: "inherit",
+              }}
+            >
+              <Home size={20} />
+              חזרה לדף הבית
+            </button>
+
+            <button
+              onClick={onClose}
+              style={{
+                background: "none", border: "none",
+                color: "var(--ink-faint)", fontSize: 13,
+                cursor: "pointer", padding: "4px",
+                fontFamily: "inherit",
+              }}
+            >
+              סגור והישאר בחדר
+            </button>
+          </div>
         </div>
       </motion.div>
     </motion.div>

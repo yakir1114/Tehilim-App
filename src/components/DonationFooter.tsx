@@ -3,17 +3,25 @@ import { Heart } from "lucide-react";
 const PAYPAL_ME = "https://paypal.me/yakirkarandian";
 
 export default function DonationFooter() {
-  const paypalUrl = PAYPAL_ME;
-
   return (
-    <footer className="mt-12 border-t border-stone-100 pt-8 pb-6 text-center space-y-4">
-      <div className="flex items-center justify-center gap-2 text-stone-400">
-        <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
-        <span className="text-sm font-medium">אתר זה נועד לטובת הכלל</span>
-        <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
+    <footer style={{
+      marginTop: 24,
+      borderTop: "1px solid var(--line)",
+      paddingTop: 28,
+      paddingBottom: 20,
+      textAlign: "center",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 14,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--ink-soft)" }}>
+        <Heart size={15} color="#f87171" fill="#f87171" />
+        <span style={{ fontSize: 14, fontWeight: 500 }}>אתר זה נועד לטובת הכלל</span>
+        <Heart size={15} color="#f87171" fill="#f87171" />
       </div>
 
-      <p className="text-stone-500 text-sm leading-relaxed max-w-sm mx-auto">
+      <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.7, color: "var(--ink-soft)", maxWidth: 340 }}>
         האתר ניתן לשימוש חינם לכולם ונועד לזכות את הרבים.
         <br />
         על מנת שיוכל להמשיך לפעול, נדרשים תשלומים עבור השרת והאחסון.
@@ -22,20 +30,37 @@ export default function DonationFooter() {
       </p>
 
       <a
-        href={paypalUrl}
+        href={PAYPAL_ME}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-2.5 px-6 py-3 bg-[#0070BA] hover:bg-[#005ea6] text-white font-bold rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "12px 24px",
+          background: "#0070BA",
+          color: "#fff",
+          textDecoration: "none",
+          borderRadius: 16,
+          fontWeight: 700,
+          fontSize: 15,
+          fontFamily: "inherit",
+          transition: "background 0.18s ease",
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = "#005ea6")}
+        onMouseLeave={e => (e.currentTarget.style.background = "#0070BA")}
       >
         <img
           src="https://www.paypalobjects.com/webstatic/icon/pp258.png"
           alt="PayPal"
-          className="w-5 h-5 object-contain brightness-200"
+          style={{ width: 20, height: 20, objectFit: "contain", filter: "brightness(10)" }}
         />
         תרמו דרך PayPal
       </a>
 
-      <p className="text-xs text-stone-300 pt-1">תהילים יחד — לרפואת כל החולים</p>
+      <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-faint)" }}>
+        תהילים יחד — לרפואת כל החולים
+      </p>
     </footer>
   );
 }

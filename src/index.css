@@ -1,1 +1,87 @@
 @import "tailwindcss";
+
+/* ── Light mode ─────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: #FAF7F0;
+  --surface: #FFFFFF;
+  --surface-alt: #F3EEE2;
+  --ink: #2B2722;
+  --ink-soft: #6B6357;
+  --ink-faint: #9C9384;
+  --line: #EAE3D4;
+  --accent: oklch(0.66 0.105 80);
+  --accent-ink: #FFFFFF;
+  --accent-soft: oklch(0.94 0.04 80);
+  --accent-text: oklch(0.56 0.11 80);
+  --mine: oklch(0.93 0.04 230);
+  --mine-line: oklch(0.74 0.09 250);
+  --mine-ink: oklch(0.48 0.10 255);
+  --complete-shadow: oklch(0.66 0.105 80 / 0.30);
+}
+
+/* ── Dark mode (DEFAULT) ────────────────────────────────── */
+[data-theme="dark"] {
+  --bg: #10131F;
+  --surface: #1A1E2E;
+  --surface-alt: #232842;
+  --ink: #ECE8DC;
+  --ink-soft: #A1A3B6;
+  --ink-faint: #6E7186;
+  --line: #2A3047;
+  --accent: oklch(0.80 0.105 82);
+  --accent-ink: #16131A;
+  --accent-soft: oklch(0.34 0.055 82);
+  --accent-text: oklch(0.84 0.10 84);
+  --mine: oklch(0.40 0.075 255);
+  --mine-line: oklch(0.66 0.11 258);
+  --mine-ink: oklch(0.87 0.07 258);
+  --complete-shadow: oklch(0.80 0.105 82 / 0.55);
+}
+
+/* ── Base ───────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans Hebrew', sans-serif;
+  transition: background 0.25s ease, color 0.25s ease;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Progress shimmer ───────────────────────────────────── */
+@keyframes shimmer {
+  0%   { transform: translateX(-220%); }
+  100% { transform: translateX(120%); }
+}
+
+/* ── Pulse dot (mine tile indicator) ───────────────────── */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.75); }
+}
+
+/* ── Trophy float ───────────────────────────────────────── */
+@keyframes trophyFloat {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50%       { transform: translateY(-5px) rotate(3deg); }
+}
+
+/* ── Confetti fall ──────────────────────────────────────── */
+@keyframes confettiFall {
+  0%   { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(680px) rotate(540deg); opacity: 0; }
+}
+
+/* ── Sparkle pulse ──────────────────────────────────────── */
+@keyframes sparklePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
