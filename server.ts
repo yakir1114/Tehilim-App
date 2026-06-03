@@ -11,7 +11,8 @@ const db = new Database("tehillim.db");
 db.exec(`
   CREATE TABLE IF NOT EXISTS rooms (
     id TEXT PRIMARY KEY,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_accessed_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE TABLE IF NOT EXISTS chapter_states (
     room_id TEXT,
@@ -22,6 +23,28 @@ db.exec(`
     PRIMARY KEY (room_id, chapter_number)
   );
 `);
+
+// Add last_accessed_at column to existing DBs that don't have it yet
+try {
+  db.exec(`ALTER TABLE rooms ADD COLUMN last_accessed_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
+} catch {
+  // Column already exists — ignore
+}
+
+// ── Cleanup: delete rooms not accessed in 3 days ──────────────────────────────
+function deleteStaleRooms() {
+  const result = db.prepare(`
+    DELETE FROM rooms
+    WHERE last_accessed_at < datetime('now', '-3 days')
+  `).run();
+  if (result.changes > 0) {
+    console.log(`[cleanup] Deleted ${result.changes} stale room(s) older than 3 days`);
+  }
+}
+
+// Run once on startup, then every 24 hours
+deleteStaleRooms();
+setInterval(deleteStaleRooms, 24 * 60 * 60 * 1000);
 
 async function startServer() {
   const app = express();
@@ -84,6 +107,8 @@ async function startServer() {
     if (!room) {
       return res.status(404).json({ error: "Room not found" });
     }
+    // Update last accessed timestamp
+    db.prepare("UPDATE rooms SET last_accessed_at = CURRENT_TIMESTAMP WHERE id = ?").run(roomId);
     const states = db.prepare("SELECT * FROM chapter_states WHERE room_id = ?").all(roomId);
     res.json({ roomId, states });
   });
@@ -93,6 +118,8 @@ async function startServer() {
     socket.on("join-room", (roomId) => {
       socket.join(roomId);
       console.log(`User ${socket.id} joined room ${roomId}`);
+      // Update last accessed timestamp on socket join too
+      db.prepare("UPDATE rooms SET last_accessed_at = CURRENT_TIMESTAMP WHERE id = ?").run(roomId);
     });
 
     socket.on("lock-chapter", ({ roomId, chapterNumber, userId }) => {
