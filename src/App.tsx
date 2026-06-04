@@ -212,7 +212,7 @@ function HomeView() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--ink)" }}>
-                נקרא יחד
+                תהילים יחד
               </h1>
               <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--ink-soft)" }}>
                 קריאת ספר תהילים משותפת בזמן אמת. חלקו את הפרקים בין חברים וסיימו את הספר יחד.

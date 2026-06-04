@@ -7,4 +7,5 @@ coverage/
 .env*
 !.env.example
 README.md
+tehillim.db
 
